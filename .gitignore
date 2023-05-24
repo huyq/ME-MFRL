@@ -1,0 +1,6 @@
+data/
+ablations/
+utils/
+*.sh
+*.png
+__pycache__/
