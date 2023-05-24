@@ -1,12 +1,19 @@
-# Requirements
+## Requirements
 tensorflow > 2.0
 magent
 
+## Install environments
 # install magent
 ```shell
 pip install magent
 ```
+# install mpe
+```shell
+cd env/mpe
+pip install -e .
+```
 
+## Scripts
 # train in tag
 ```shell
 python train_tag --algo me_mfppo --order 4
