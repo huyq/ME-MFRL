@@ -1,1 +1,0 @@
-srun -w node04 -c 8 --gres gpu:1 --unbuffered python train_tag.py --algo ppo --n_round 1000
