@@ -7,7 +7,7 @@ magent
 ```shell
 pip install magent
 ```
-# install mpe
+## install mpe
 ```shell
 cd env/mpe
 pip install -e .
