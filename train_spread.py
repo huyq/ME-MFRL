@@ -52,7 +52,7 @@ def test_env(env):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--algo', type=str, choices={'ppo', 'me_mfppo', 'quantile_mfppo', 'mappo', 'sac'}, help='choose an algorithm from the preset', required=True)
+    parser.add_argument('--algo', type=str, choices={'ppo', 'me_mfppo', 'grid_mfppo', 'mappo', 'sac'}, help='choose an algorithm from the preset', required=True)
     parser.add_argument('--agent_density', type=float, default=0.04, help='set the density of agents')
     parser.add_argument('--save_every', type=int, default=50, help='decide the self-play update interval')
     parser.add_argument('--checkpoint_dir', type=str, help='required when use bi-network')

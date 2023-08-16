@@ -18,7 +18,7 @@ def spawn_ai(algo_name, sess, env, handle, human_name, max_steps, order=4):
         model = MFQ(sess, human_name, handle, env, max_steps, memory_size=80000)
     elif algo_name == 'me_mfppo':
         model = MFPPO(sess, human_name, handle, env, order=order)
-    elif algo_name == 'quantile_mfppo':
+    elif algo_name == 'grid_mfppo':
         model = MFPPO(sess, human_name, handle, env, order=order)
     elif algo_name == 'ppo':
         model = PPO(sess, human_name, handle, env)

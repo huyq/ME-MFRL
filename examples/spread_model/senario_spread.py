@@ -45,6 +45,19 @@ def _calc_moment(a, order=4):
     moment = np.array(moments)
     return moment.reshape(1,-1)
 
+def _cal_ca(a, order=4):
+    c_a = []
+    for i in range(a.shape[1]):
+        mean_action = np.mean(a[:,i])
+        deviation = mean_action - a[:,i]
+        m = np.array([j*a[:,i]**(j-1) for j in range(1,order+1)])
+        c = m@deviation.T 
+        c_a.append(c)
+
+    c_a = np.array(c_a).T
+    return c_a.reshape(1,-1)
+
+
 
 def play(env, n_round, map_size, max_steps, handles, model, print_every=10, record=False, render=False, eps=None, train=False):
     
@@ -110,7 +123,7 @@ def play(env, n_round, map_size, max_steps, handles, model, print_every=10, reco
         #############################
         # Calculate mean field #
         #############################
-        if 'quantile' in model.name:
+        if 'grid' in model.name:
             former_meanaction = _calc_bin_density(acts, model.order)
         elif 'mf' in model.name:
             former_meanaction = _calc_moment(acts, model.order)
@@ -201,7 +214,7 @@ def test(env, n_round, map_size, max_steps, handles, model, print_every=10, reco
         #############################
         # Calculate mean field #
         #############################
-        if 'quantile' in model.name:
+        if 'grid' in model.name:
             former_meanaction = _calc_bin_density(acts, model.order)
         elif 'mf' in model.name:
             former_meanaction = _calc_moment(acts, model.order)

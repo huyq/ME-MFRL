@@ -222,7 +222,7 @@ class MFPPO:
         self.name = name
         self.state_dim = env.observation_space[0].shape[0] if 'predator' in name else env.observation_space[-1].shape[0]
         self.action_dim = env.action_space[0].shape[0] if 'predator' in name else env.action_space[-1].shape[0]
-        self.moment_dim = order**self.action_dim if 'quantile' in name else order*self.action_dim
+        self.moment_dim = order**self.action_dim if 'grid' in name else order*self.action_dim
         self.order = order
         self.gamma = gamma
         self.lam = 0.99
