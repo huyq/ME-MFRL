@@ -97,6 +97,7 @@ class PPO:
 
         # actor critic
         x_pi = tf.layers.dense(self.s_ph, 256, tf.nn.relu)
+        x_pi = tf.layers.dense(x_pi, 64, tf.nn.relu)
         mu = tf.layers.dense(x_pi, self.action_dim, tf.nn.tanh)
         log_std = tf.get_variable(name='log_std', initializer=LOG_STD*np.ones(self.action_dim, dtype=np.float32))
         std = tf.exp(log_std)
@@ -223,7 +224,7 @@ class MFPPO:
         self.state_dim = env.observation_space[0].shape[0] if 'predator' in name else env.observation_space[-1].shape[0]
         self.action_dim = env.action_space[0].shape[0] if 'predator' in name else env.action_space[-1].shape[0]
         self.order = order
-        self.moment_dim = order**self.action_dim if 'quantile' in name else order*self.action_dim
+        self.moment_dim = order**self.action_dim if 'grid' in name else order*self.action_dim
         self.gamma = gamma
         self.lam = 0.99
         self.target_kl = 0.01
@@ -242,7 +243,7 @@ class MFPPO:
         self.ent_coef = ent_coef  # coefficient of entropy in the total loss
 
         # init training buffers
-        self.replay_buffer = tools.EpisodesBuffer(use_mean=True)
+        self.replay_buffer = tools.EpisodesBuffer(use_mean=True, use_g=True)
 
         with tf.variable_scope(name):
             self.name_scope = tf.get_variable_scope().name
@@ -256,7 +257,7 @@ class MFPPO:
         self.replay_buffer.push(**kwargs)
     
     def act(self, **kwargs):
-        inputs = {self.s_ph:kwargs['state'], self.m_ph:kwargs['meanaction']} 
+        inputs = {self.s_ph:kwargs['state'], self.m_ph:kwargs['meanaction'], self.g_ph:kwargs['g']} 
         pi, v, logp_pi = self.sess.run([self.pi, self.v, self.logp_pi], inputs)
         a = np.clip(pi, -1, 1)
         return a, v, logp_pi
@@ -273,21 +274,32 @@ class MFPPO:
         return self.sess.run(self.v, inputs)[0, 0]
 
     def _create_network(self):
+        print(self.state_dim, self.moment_dim, self.action_dim)
         self.s_ph = tf.placeholder(tf.float32, [None, self.state_dim])
         self.m_ph = tf.placeholder(tf.float32, [None, self.moment_dim])
         self.a_ph = tf.placeholder(tf.float32, [None, self.action_dim])
+        self.g_ph = tf.placeholder(tf.float32, [None, self.moment_dim])
         self.adv_ph = tf.placeholder(tf.float32, (None,))
         self.ret_ph = tf.placeholder(tf.float32, (None,))
         self.logp_old_ph = tf.placeholder(tf.float32, (None,))
 
         self.all_phs = [self.s_ph, self.a_ph, self.adv_ph, self.ret_ph, self.logp_old_ph]
 
+
         # actor 
 
+        # pi(a|s,mu)
+        # x_pi = tf.layers.dense(self.s_ph, 256, tf.nn.relu)
+        # x_moment_pi = tf.layers.dense(self.m_ph, 64, tf.nn.relu)
+        # x_concat_pi = tf.concat([x_pi, x_moment_pi], axis=1)
+        # mu = tf.layers.dense(x_concat_pi, self.action_dim, tf.nn.tanh)
+
+
+        # pi(a|s)
         x_pi = tf.layers.dense(self.s_ph, 256, tf.nn.relu)
-        x_moment_pi = tf.layers.dense(self.m_ph, 64, tf.nn.relu)
-        x_concat_pi = tf.concat([x_pi, x_moment_pi], axis=1)
-        mu = tf.layers.dense(x_concat_pi, self.action_dim, tf.nn.tanh)
+        x_pi = tf.layers.dense(x_pi, 64, tf.nn.relu)
+        mu = tf.layers.dense(x_pi, self.action_dim, tf.nn.tanh)
+
         log_std = tf.get_variable(name='log_std', initializer=LOG_STD*np.ones(self.action_dim, dtype=np.float32))
         std = tf.exp(log_std)
         self.pi = mu + tf.random_normal(tf.shape(mu)) * std
@@ -299,7 +311,10 @@ class MFPPO:
         x_v = tf.layers.dense(self.s_ph, 256, tf.nn.relu)
         x_moment = tf.layers.dense(self.m_ph, 64, tf.nn.relu)
         x_concat = tf.concat([x_v, x_moment], axis=1)
-        self.v = tf.layers.dense(x_concat, 1)
+        h = tf.layers.dense(x_concat, 1)
+        delta_h = tf.gradients(h, self.m_ph)[0]
+        G = tf.keras.backend.batch_dot(self.g_ph, delta_h)
+        self.v = h+G
 
         # loss
         ratio = tf.exp(self.logp - self.logp_old_ph)
@@ -325,7 +340,7 @@ class MFPPO:
 
     def train(self):
         batch_data = self.replay_buffer.episodes()
-        self.replay_buffer = tools.EpisodesBuffer(use_mean=True)
+        self.replay_buffer = tools.EpisodesBuffer(use_mean=True, use_g=True)
 
         # calc buffer size
         n = 0
@@ -338,6 +353,7 @@ class MFPPO:
         ret_buf = np.empty(n,dtype=np.float32)
         logp_buf = np.empty(n,dtype=np.float32)
         meanaction_buf = np.empty((n,) + (self.moment_dim,), dtype=np.float32)
+        g_buf = np.empty((n,) + (self.moment_dim,), dtype=np.float32)
 
         ptr = 0
         # collect episodes from multiple separate buffers to a continuous buffer
@@ -349,9 +365,10 @@ class MFPPO:
             value = episode.values
             logp_ = episode.logps
             meanaction = episode.meanactions
+            g = episode.g
 
             T = len(reward)
-            bootstrap_value = self.sess.run(self.v, feed_dict={self.s_ph: [state[-1]], self.m_ph: [meanaction[-1]]})[0]
+            bootstrap_value = self.sess.run(self.v, feed_dict={self.s_ph: [state[-1]], self.m_ph: [meanaction[-1]], self.g_ph:[g[-1]]})[0]
             value = np.append(value, bootstrap_value)
             discount = (~done).astype(np.float32)*self.gamma
             delta = reward + discount*value[1:] - value[:-1]
@@ -364,6 +381,7 @@ class MFPPO:
             ret_buf[ptr:ptr+T] = return_
             logp_buf[ptr:ptr+T] = logp_
             meanaction_buf[ptr:ptr+T] = meanaction[:-1]
+            g_buf[ptr:ptr+T] = g[:-1]
 
             ptr += T
 
@@ -377,6 +395,7 @@ class MFPPO:
             self.adv_ph: adv_buf, 
             self.ret_ph: ret_buf, 
             self.logp_old_ph: logp_buf,
+            self.g_ph: g_buf,
         }
         pg_loss, vf_loss, ent_loss = self.sess.run([self.pi_loss, self.v_loss, self.approx_ent], feed_dict=inputs)
         

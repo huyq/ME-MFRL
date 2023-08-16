@@ -23,7 +23,7 @@ tf.disable_v2_behavior()
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
-def setup_seed(seed=42):
+def setup_seed(seed=0):
     random.seed(seed)
     os.environ['PYTHONHASHSEED'] = str(seed)
     np.random.seed(seed)
@@ -52,12 +52,12 @@ def test_env(env):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--algo', type=str, choices={'ppo', 'me_mfppo', 'quantile_ppo', 'mappo', 'sac'}, help='choose an algorithm from the preset', required=True)
+    parser.add_argument('--algo', type=str, choices={'ppo', 'me_mfppo', 'quantile_mfppo', 'mappo', 'sac'}, help='choose an algorithm from the preset', required=True)
     parser.add_argument('--agent_density', type=float, default=0.04, help='set the density of agents')
     parser.add_argument('--save_every', type=int, default=50, help='decide the self-play update interval')
     parser.add_argument('--checkpoint_dir', type=str, help='required when use bi-network')
     parser.add_argument('--update_every', type=int, default=5, help='decide the udpate interval for q-learning, optional')
-    parser.add_argument('--n_round', type=int, default=1000, help='set the trainning round')
+    parser.add_argument('--n_round', type=int, default=500, help='set the trainning round')
     parser.add_argument('--render', action='store_true', help='render or not (if true, will render every save)')
     parser.add_argument('--map_size', type=int, default=40, help='set the size of map')  # then the amount of agents is 64
     parser.add_argument('--max_steps', type=int, default=25, help='set the max steps')
@@ -68,6 +68,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Initialize the environment
+
+    setup_seed(args.seed)
     
     env = make_env('exp_spread')
     
@@ -76,7 +78,7 @@ if __name__ == '__main__':
 
     log_dir = os.path.join(BASE_DIR,'data/tmp/{}_{}'.format(args.algo, args.seed))
     model_dir = os.path.join(BASE_DIR, 'data/models/{}_{}'.format(args.algo, args.seed))
-    if args.algo == 'me_mfppo' or args.algo == 'quantile_ppo':
+    if 'mf' in args.algo:
         log_dir = os.path.join(BASE_DIR,f'data/tmp/{args.algo}_{args.order}_{args.seed}')
         model_dir = os.path.join(BASE_DIR, f'data/models/{args.algo}_{args.order}_{args.seed}')
 

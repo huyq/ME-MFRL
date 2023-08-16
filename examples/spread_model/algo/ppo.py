@@ -96,7 +96,7 @@ class PPO:
 
         # actor critic
         x_pi = tf.layers.dense(self.s_ph, 256, tf.nn.relu)
-        # x_pi = tf.layers.dense(x_pi, 64, tf.nn.relu)
+        x_pi = tf.layers.dense(x_pi, 64, tf.nn.relu)
         mu = tf.layers.dense(x_pi, self.action_dim, tf.nn.tanh)
         log_std = tf.get_variable(name='log_std', initializer=LOG_STD*np.ones(self.action_dim, dtype=np.float32))
         std = tf.exp(log_std)
@@ -230,10 +230,10 @@ class MFPPO:
         self.clip_ratio = 0.2
 
         self.batch_size = batch_size
-        self.actor_lr = 3e-4
-        self.critic_lr = 3e-4
-        self.actor_update_steps = 2
-        self.critic_update_steps = 2
+        self.actor_lr = 5e-4
+        self.critic_lr = 5e-4
+        self.actor_update_steps = 4
+        self.critic_update_steps = 4
         self.actor_global_step = tf.Variable(0, trainable=False)
         self.critic_global_step = tf.Variable(0, trainable=False)
 
@@ -286,13 +286,17 @@ class MFPPO:
 
         # actor 
 
-        x_pi = tf.layers.dense(self.s_ph, 256, tf.nn.relu)
-        x_moment_pi = tf.layers.dense(self.m_ph, 64, tf.nn.relu)
-        x_concat_pi = tf.concat([x_pi, x_moment_pi], axis=1)
-        mu = tf.layers.dense(x_concat_pi, self.action_dim, tf.nn.tanh)
+        # pi(a|s,mu)
         # x_pi = tf.layers.dense(self.s_ph, 256, tf.nn.relu)
-        # x_pi = tf.layers.dense(x_pi, 64, tf.nn.relu)
-        # mu = tf.layers.dense(x_pi, self.action_dim, tf.nn.tanh)
+        # x_moment_pi = tf.layers.dense(self.m_ph, 64, tf.nn.relu)
+        # x_concat_pi = tf.concat([x_pi, x_moment_pi], axis=1)
+        # mu = tf.layers.dense(x_concat_pi, self.action_dim, tf.nn.tanh)
+
+        # pi(a|s)
+        x_pi = tf.layers.dense(self.s_ph, 256, tf.nn.relu)
+        x_pi = tf.layers.dense(x_pi, 64, tf.nn.relu)
+        mu = tf.layers.dense(x_pi, self.action_dim, tf.nn.tanh)
+
         log_std = tf.get_variable(name='log_std', initializer=LOG_STD*np.ones(self.action_dim, dtype=np.float32))
         std = tf.exp(log_std)
         self.pi = mu + tf.random_normal(tf.shape(mu)) * std
@@ -301,6 +305,7 @@ class MFPPO:
         self.mu = mu
 
         # critic
+        # v(s,mu)
         x_v = tf.layers.dense(self.s_ph, 256, tf.nn.relu)
         x_moment = tf.layers.dense(self.m_ph, 64, tf.nn.relu)
         x_concat = tf.concat([x_v, x_moment], axis=1)

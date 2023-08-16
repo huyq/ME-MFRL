@@ -65,9 +65,7 @@ def play(env, n_round, map_size, max_steps, handles, model, print_every=10, reco
 
     former_meanaction = []
 
-    if 'quantile' in model.name:
-        former_meanaction = np.zeros((1, model.moment_dim))
-    elif 'mf' in model.name:
+    if 'mf' in model.name:
         former_meanaction = np.zeros((1, model.moment_dim))
     elif 'ma' in model.name:
         former_meanaction = np.zeros((1, num_agents*action_dim))
@@ -80,7 +78,8 @@ def play(env, n_round, map_size, max_steps, handles, model, print_every=10, reco
         # Choose action #
         #################
         # print('\n===============obs len: ', len(obs))
-        former_meanaction = np.tile(former_meanaction, (num_agents, 1))
+        if 'mf' in model.name or 'ma' in model.name:
+            former_meanaction = np.tile(former_meanaction, (num_agents, 1))
         acts, values, logprobs = model.act(state=obs, meanaction=former_meanaction)
 
         old_obs = obs
@@ -176,9 +175,7 @@ def test(env, n_round, map_size, max_steps, handles, model, print_every=10, reco
     total_rewards = []
 
     former_meanaction = []
-    if 'quantile' in model.name:
-        former_meanaction = np.zeros((1, model.moment_dim))
-    elif 'mf' in model.name:
+    if 'mf' in model.name:
         former_meanaction = np.zeros((1, model.moment_dim))
     elif 'ma' in model.name:
         former_meanaction = np.zeros((1, num_agents*action_dim))

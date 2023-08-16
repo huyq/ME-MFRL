@@ -45,6 +45,19 @@ def _calc_moment(a, order=4):
     moment = np.array(moments)
     return moment.reshape(1,-1)
 
+def _cal_ca(a, order=4):
+    c_a = []
+    for i in range(a.shape[1]):
+        mean_action = np.mean(a[:,i])
+        deviation = mean_action - a[:,i]
+        m = np.array([j*a[:,i]**(j-1) for j in range(1,order+1)])
+        c = m@deviation.T 
+        c_a.append(c)
+
+    c_a = np.array(c_a).T
+    return c_a.reshape(1,-1)
+
+
 
 def play(env, n_round, map_size, max_steps, handles, models, print_every=10, record=False, render=False, eps=None, train=False):
     env.reset()
@@ -70,8 +83,12 @@ def play(env, n_round, map_size, max_steps, handles, models, print_every=10, rec
     total_rewards = [[] for _ in range(n_group)]
 
     former_meanaction = [[] for _ in range(n_group)]
+    former_g = [[] for _ in range(n_group)]
     for i in range(n_group):
-        former_meanaction[i] = np.zeros((1, models[i].moment_dim))
+        if 'mf' in models[i].name:
+            former_meanaction[i] = np.zeros((1, models[i].moment_dim))
+        if 'me' in models[i].name:
+            former_g[i] = np.zeros((1, models[i].moment_dim))
 
     ########################
     # Actor start sampling #
@@ -82,8 +99,11 @@ def play(env, n_round, map_size, max_steps, handles, models, print_every=10, rec
         #################
         # print('\n===============obs len: ', len(obs))
         for i in range(n_group):
-            former_meanaction[i] = np.tile(former_meanaction[i], (max_nums[i], 1))
-            acts[i], values[i], logprobs[i] = models[i].act(state=obs[i], meanaction=former_meanaction[i])
+            if 'mf' in models[i].name:
+                former_meanaction[i] = np.tile(former_meanaction[i], (max_nums[i], 1))
+            if 'me' in models[i].name:
+                former_g[i] = np.tile(former_g[i], (max_nums[i], 1))
+            acts[i], values[i], logprobs[i] = models[i].act(state=obs[i], meanaction=former_meanaction[i], g=former_g[i])
 
         old_obs = obs
         stack_act = np.concatenate(acts, axis=0)
@@ -101,6 +121,8 @@ def play(env, n_round, map_size, max_steps, handles, models, print_every=10, rec
             'logps': logprobs[0],
             'ids': range(max_nums[0]), 
         }
+        if 'me' in models[0].name:
+            predator_buffer['g'] = former_g[0]
         if 'mf' in models[0].name:
             predator_buffer['meanaction'] = former_meanaction[0]
         if 'sac' in models[0].name:
@@ -115,12 +137,13 @@ def play(env, n_round, map_size, max_steps, handles, models, print_every=10, rec
             'logps': logprobs[1],
             'ids': range(max_nums[1]), 
         }
+        if 'me' in models[1].name:
+            prey_buffer['g'] = former_g[1]
         if 'mf' in models[1].name:
             prey_buffer['meanaction'] = former_meanaction[1]
         if 'sac' in models[1].name:
             prey_buffer['next_state'] = obs[1]
 
-        
         models[0].flush_buffer(**predator_buffer)
         models[1].flush_buffer(**prey_buffer)
         
@@ -128,10 +151,12 @@ def play(env, n_round, map_size, max_steps, handles, models, print_every=10, rec
         # Calculate mean field #
         #############################
         for i in range(n_group):
-            if 'quantile' in models[i].name:
-                former_meanaction[i] = _calc_bin_density(acts[i], order=models[i].order)
-            else:
-                former_meanaction[i] = _calc_moment(acts[i], order=models[i].order)
+            if 'me' in models[i].name:
+                former_g[i] = _cal_ca(acts[i])
+            if 'grid' in models[i].name:
+                former_meanaction[i] = _calc_bin_density(acts[i])
+            elif 'mf' in models[i].name:
+                former_meanaction[i] = _calc_moment(acts[i])
 
         for i in range(n_group):
             sum_reward = sum(rewards[i])
@@ -157,6 +182,8 @@ def play(env, n_round, map_size, max_steps, handles, models, print_every=10, rec
             'logps': [None for i in range(max_nums[0])],
             'ids': range(max_nums[0]), 
         }
+        if 'me' in models[0].name:
+            predator_buffer['g'] = np.tile(former_g[0], (max_nums[0], 1))
         if 'mf' in models[0].name:
             predator_buffer['meanaction'] = np.tile(former_meanaction[0], (max_nums[0], 1))
     
@@ -172,6 +199,8 @@ def play(env, n_round, map_size, max_steps, handles, models, print_every=10, rec
             'logps': [None for i in range(max_nums[1])],
             'ids': range(max_nums[1]), 
         }
+        if 'me' in models[0].name:
+            prey_buffer['g'] = np.tile(former_g[1], (max_nums[1], 1))
         if 'mf' in models[1].name:
             prey_buffer['meanaction'] = np.tile(former_meanaction[1], (max_nums[1], 1))
 
@@ -211,7 +240,8 @@ def test(env, n_round, map_size, max_steps, handles, models, print_every=10, rec
 
     former_meanaction = [[] for _ in range(n_group)]
     for i in range(n_group):
-        former_meanaction[i] = np.zeros((1, models[i].moment_dim))
+        if 'mf' in models[i].name:
+            former_meanaction[i] = np.zeros((1, models[i].moment_dim))
 
 
     ########################
@@ -223,7 +253,8 @@ def test(env, n_round, map_size, max_steps, handles, models, print_every=10, rec
         #################
         # print('\n===============obs len: ', len(obs))
         for i in range(n_group):
-            former_meanaction[i] = np.tile(former_meanaction[i], (max_nums[i], 1))
+            if 'mf' in models[i].name:
+                former_meanaction[i] = np.tile(former_meanaction[i], (max_nums[i], 1))
             acts[i], values[i], logprobs[i] = models[i].act(state=obs[i], meanaction=former_meanaction[i])
         ## random predator
         # acts[0] = np.random.rand(num_pred,2)*2-1  
@@ -239,9 +270,9 @@ def test(env, n_round, map_size, max_steps, handles, models, print_every=10, rec
         # Calculate mean field #
         #############################
         for i in range(n_group):
-            if 'quantile' in models[i].name:
+            if 'grid' in models[i].name:
                 former_meanaction[i] = _calc_bin_density(acts[i], order=models[i].order)
-            else:
+            elif 'mf' in models[i].name:
                 former_meanaction[i] = _calc_moment(acts[i], order=models[i].order)
                 
 

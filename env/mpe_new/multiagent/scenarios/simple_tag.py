@@ -8,10 +8,10 @@ class Scenario(BaseScenario):
         world = World()
         # set any world properties first
         world.dim_c = 2
-        num_good_agents = 10
-        num_adversaries = 30
+        num_good_agents = 1
+        num_adversaries = 3
         num_agents = num_adversaries + num_good_agents
-        num_landmarks = 20
+        num_landmarks = 2
         # add agents
         world.agents = [Agent() for i in range(num_agents)]
         for i, agent in enumerate(world.agents):
@@ -29,7 +29,7 @@ class Scenario(BaseScenario):
             landmark.name = 'landmark %d' % i
             landmark.collide = True
             landmark.movable = False
-            landmark.size = 0.04
+            landmark.size = 0.2
             landmark.boundary = False
         # make initial conditions
         self.reset_world(world)
@@ -106,7 +106,6 @@ class Scenario(BaseScenario):
             if x < 1.0:
                 return (x - 0.9) * 10
             return min(np.exp(2 * x - 2), 10)
-        
         for p in range(world.dim_p):
             x = abs(agent.state.p_pos[p])
             rew -= bound(x)
@@ -124,12 +123,9 @@ class Scenario(BaseScenario):
                 rew -= 0.1 * min([np.sqrt(np.sum(np.square(a.state.p_pos - adv.state.p_pos))) for a in agents])
         if agent.collide:
             for ag in agents:
-                if self.is_collision(ag, agent):
+                for adv in adversaries:
+                    if self.is_collision(ag, adv):
                         rew += 10
-            # for ag in agents:
-                # for adv in adversaries:
-                    # if self.is_collision(ag, adv):
-                        # rew += 10
         return rew
 
     def observation(self, agent, world):
@@ -148,5 +144,4 @@ class Scenario(BaseScenario):
             other_pos.append(other.state.p_pos - agent.state.p_pos)
             if not other.adversary:
                 other_vel.append(other.state.p_vel)
-        # return np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + entity_pos + other_pos + other_vel)
-        return np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + entity_pos + other_pos)
+        return np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + entity_pos + other_pos + other_vel)

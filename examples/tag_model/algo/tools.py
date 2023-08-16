@@ -71,9 +71,10 @@ class EpisodesBufferEntry:
         self.values = []
         self.logps = []
         self.meanactions = []
+        self.g = []
         self.terminal = False
 
-    def append(self, state, action, reward, done, value, logp, meanaction=None):
+    def append(self, state, action, reward, done, value, logp, meanaction=None, g=None):
         self.states.append(state)
         if action is not None:
             self.actions.append(action)
@@ -87,6 +88,8 @@ class EpisodesBufferEntry:
             self.logps.append(logp)
         if meanaction is not None:
             self.meanactions.append(meanaction)
+        if g is not None:
+            self.g.append(g)
         if done:
             self.terminal = True
 
@@ -95,10 +98,11 @@ class EpisodesBuffer(Buffer):
     """Replay buffer to store a whole episode for all agents
        one entry for one agent
     """
-    def __init__(self, use_mean=False):
+    def __init__(self, use_mean=False, use_g=False):
         super().__init__()
         self.buffer = {}
         self.use_mean = use_mean
+        self.use_g = use_g
 
     def push(self, **kwargs):
         state = kwargs['state']
@@ -111,6 +115,8 @@ class EpisodesBuffer(Buffer):
 
         if self.use_mean:
             meanaction = kwargs['meanaction']
+        if self.use_g:
+            g = kwargs['g']
         
         for i in ids:
             entry = self.buffer.get(i)
@@ -118,7 +124,9 @@ class EpisodesBuffer(Buffer):
                 entry = EpisodesBufferEntry()
                 self.buffer[i] = entry
             
-            if self.use_mean:
+            if self.use_g:
+                entry.append(state[i], acts[i], rewards[i], dones[i], values[i], logps[i], meanaction=meanaction[i], g=g[i])
+            elif self.use_mean:
                 entry.append(state[i], acts[i], rewards[i], dones[i], values[i], logps[i], meanaction=meanaction[i])
             else:
                 entry.append(state[i], acts[i], rewards[i], dones[i], values[i], logps[i])
@@ -159,7 +167,7 @@ class AgentMemory(object):
             'acts': self.actions.pull(),
             'rewards': self.rewards.pull(),
             'dones': self.terminals.pull(),
-            'meanaction': None if not self.use_mean else self.meanaction.pull()
+            'meanaction': None if not self.use_mean else self.meanaction.pull(),
         }
 
         return res
