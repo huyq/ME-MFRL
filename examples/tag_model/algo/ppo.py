@@ -222,7 +222,7 @@ class MAPPO:
         self.name = name
         self.state_dim = env.observation_space[0].shape[0] if 'predator' in name else env.observation_space[-1].shape[0]
         self.action_dim = env.action_space[0].shape[0] if 'predator' in name else env.action_space[-1].shape[0]
-        self.n_agents = len(env.agents)
+        self.n_agents = 30 if 'predator' in name else 10
         self.gamma = gamma
         self.lam = 0.99
         self.target_kl = 0.01

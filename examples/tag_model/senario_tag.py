@@ -100,8 +100,11 @@ def play(env, n_round, map_size, max_steps, handles, models, print_every=10, rec
         # Choose action #
         #################
         # print('\n===============obs len: ', len(obs))
+        
         for i in range(n_group):
-            if 'mf' in models[i].name or 'ma' in models[i].name:
+            if 'mf' in models[i].name:
+                former_meanaction[i] = np.tile(former_meanaction[i], (max_nums[i], 1))
+            if 'ma' in models[i].name:
                 former_meanaction[i] = np.tile(former_meanaction[i], (max_nums[i], 1))
             if 'me' in models[i].name:
                 former_g[i] = np.tile(former_g[i], (max_nums[i], 1))
@@ -113,6 +116,8 @@ def play(env, n_round, map_size, max_steps, handles, models, print_every=10, rec
         obs = [all_obs[:num_pred], all_obs[num_pred:]]
         rewards = [all_rewards[:num_pred], all_rewards[num_pred:]]
         done = all(all_done)
+
+        stack_act = [stack_act[:num_pred], stack_act[num_pred:]]
 
         predator_buffer = {
             'state': old_obs[0], 
@@ -159,7 +164,7 @@ def play(env, n_round, map_size, max_steps, handles, models, print_every=10, rec
             if 'grid' in models[i].name:
                 former_meanaction[i] = _calc_bin_density(acts[i])      
             if 'ma' in models[i].name:
-                former_meanaction = stack_act
+                former_meanaction[i] = stack_act[i].reshape(1,-1)
 
 
         for i in range(n_group):
