@@ -85,10 +85,12 @@ def play(env, n_round, map_size, max_steps, handles, models, print_every=10, rec
     former_meanaction = [[] for _ in range(n_group)]
     former_g = [[] for _ in range(n_group)]
     for i in range(n_group):
-        if 'mf' in models[i].name:
-            former_meanaction[i] = np.zeros((1, models[i].moment_dim))
         if 'me' in models[i].name:
             former_g[i] = np.zeros((1, models[i].moment_dim))
+        if 'mf' in models[i].name:
+            former_meanaction[i] = np.zeros((1, models[i].moment_dim))
+        elif 'ma' in models[i].name:
+            former_meanaction[i] = np.zeros((1, max_nums[i]*models[i].action_dim))
 
     ########################
     # Actor start sampling #
@@ -99,7 +101,7 @@ def play(env, n_round, map_size, max_steps, handles, models, print_every=10, rec
         #################
         # print('\n===============obs len: ', len(obs))
         for i in range(n_group):
-            if 'mf' in models[i].name:
+            if 'mf' in models[i].name or 'ma' in models[i].name:
                 former_meanaction[i] = np.tile(former_meanaction[i], (max_nums[i], 1))
             if 'me' in models[i].name:
                 former_g[i] = np.tile(former_g[i], (max_nums[i], 1))
@@ -123,7 +125,7 @@ def play(env, n_round, map_size, max_steps, handles, models, print_every=10, rec
         }
         if 'me' in models[0].name:
             predator_buffer['g'] = former_g[0]
-        if 'mf' in models[0].name:
+        if 'mf' in models[0].name or 'ma' in models[0].name:
             predator_buffer['meanaction'] = former_meanaction[0]
         if 'sac' in models[0].name:
             predator_buffer['next_state'] = obs[0]
@@ -139,7 +141,7 @@ def play(env, n_round, map_size, max_steps, handles, models, print_every=10, rec
         }
         if 'me' in models[1].name:
             prey_buffer['g'] = former_g[1]
-        if 'mf' in models[1].name:
+        if 'mf' in models[1].name or 'ma' in models[1].name:
             prey_buffer['meanaction'] = former_meanaction[1]
         if 'sac' in models[1].name:
             prey_buffer['next_state'] = obs[1]
@@ -153,10 +155,12 @@ def play(env, n_round, map_size, max_steps, handles, models, print_every=10, rec
         for i in range(n_group):
             if 'me' in models[i].name:
                 former_g[i] = _cal_ca(acts[i])
-            if 'grid' in models[i].name:
-                former_meanaction[i] = _calc_bin_density(acts[i])
-            elif 'mf' in models[i].name:
                 former_meanaction[i] = _calc_moment(acts[i])
+            if 'grid' in models[i].name:
+                former_meanaction[i] = _calc_bin_density(acts[i])      
+            if 'ma' in models[i].name:
+                former_meanaction = stack_act
+
 
         for i in range(n_group):
             sum_reward = sum(rewards[i])
@@ -184,7 +188,7 @@ def play(env, n_round, map_size, max_steps, handles, models, print_every=10, rec
         }
         if 'me' in models[0].name:
             predator_buffer['g'] = np.tile(former_g[0], (max_nums[0], 1))
-        if 'mf' in models[0].name:
+        if 'mf' in models[0].name or 'ma' in models[0].name:
             predator_buffer['meanaction'] = np.tile(former_meanaction[0], (max_nums[0], 1))
     
         models[0].flush_buffer(**predator_buffer)
@@ -199,9 +203,9 @@ def play(env, n_round, map_size, max_steps, handles, models, print_every=10, rec
             'logps': [None for i in range(max_nums[1])],
             'ids': range(max_nums[1]), 
         }
-        if 'me' in models[0].name:
+        if 'me' in models[1].name:
             prey_buffer['g'] = np.tile(former_g[1], (max_nums[1], 1))
-        if 'mf' in models[1].name:
+        if 'mf' in models[1].name or 'ma' in models[1].name:
             prey_buffer['meanaction'] = np.tile(former_meanaction[1], (max_nums[1], 1))
 
         models[1].flush_buffer(**prey_buffer)
