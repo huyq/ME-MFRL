@@ -3,4 +3,5 @@ ablations/
 utils/
 *.sh
 *.png
+*.out
 __pycache__/
